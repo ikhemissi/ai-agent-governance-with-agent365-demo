@@ -1,0 +1,191 @@
+<!-- Policy for all APIs (the demo's Purview check). The backend section is API Management's default, which the APIs
+     inherit (<base />). The inbound check acts only on POST calls to the model API, and only while the named value
+     purview-check is "on":
+     1. the user's token is validated, then exchanged for a Microsoft Graph token as the user (On-Behalf-Of, signed
+        by API Management's managed identity: no secret);
+     2. the text the model would receive (what the user typed, the tools' results) goes to Purview's processContent
+        (fragment purview-process-content, activity uploadText);
+     3. the call is refused with 403 if a DLP policy blocks it, and with 503 if the check cannot be made (fail closed).
+     While the named value purview-check-responses is also "on", the model's answer is checked the same way
+     (activity downloadText) before it leaves the gateway: the answer is then held until it is complete, so it no
+     longer streams. -->
+<policies>
+  <inbound>
+    <choose>
+      <when condition="@(context.Api.Path.Trim('/') == "openai/v1" && context.Request.Method == "POST" && "{{purview-check}}" == "on")">
+        <validate-azure-ad-token tenant-id="${tenant_id}" header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="A signed-in user's token for the AI gateway is required.">
+          <audiences>
+            <audience>${client_id}</audience>
+            <audience>api://${client_id}</audience>
+          </audiences>
+        </validate-azure-ad-token>
+        <set-variable name="purview-text" value="@{
+          var body = context.Request.Body.As<Newtonsoft.Json.Linq.JObject>(preserveContent: true);
+          var input = body["input"];
+          if (input == null) { return ""; }
+          if (input.Type == Newtonsoft.Json.Linq.JTokenType.String) { return (string)input; }
+          var parts = new System.Collections.Generic.List<string>();
+          foreach (var item in input.Children<Newtonsoft.Json.Linq.JObject>()) {
+            if ((string)item["type"] == "function_call_output") { parts.Add((string)item["output"] ?? ""); continue; }
+            if ((string)item["role"] != "user" || item["content"] == null) { continue; }
+            var content = item["content"];
+            if (content.Type == Newtonsoft.Json.Linq.JTokenType.String) { parts.Add((string)content); continue; }
+            foreach (var part in content.Children<Newtonsoft.Json.Linq.JObject>()) {
+              if (part["text"] != null) { parts.Add((string)part["text"]); }
+            }
+          }
+          return string.Join("\n", parts);
+        }" />
+        <choose>
+          <when condition="@(!string.IsNullOrWhiteSpace((string)context.Variables["purview-text"]))">
+            <authentication-managed-identity resource="api://AzureADTokenExchange" output-token-variable-name="purview-assertion" ignore-error="true" />
+            <send-request mode="new" response-variable-name="purview-obo" timeout="20" ignore-error="true">
+              <set-url>https://login.microsoftonline.com/${tenant_id}/oauth2/v2.0/token</set-url>
+              <set-method>POST</set-method>
+              <set-header name="Content-Type" exists-action="override">
+                <value>application/x-www-form-urlencoded</value>
+              </set-header>
+              <set-body>@{
+                var userToken = context.Request.Headers.GetValueOrDefault("Authorization", "").Replace("Bearer ", "");
+                var form = new System.Collections.Generic.Dictionary<string, string> {
+                  { "grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer" },
+                  { "requested_token_use", "on_behalf_of" },
+                  { "client_id", "${client_id}" },
+                  { "client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer" },
+                  { "client_assertion", context.Variables.GetValueOrDefault<string>("purview-assertion", "") },
+                  { "assertion", userToken },
+                  { "scope", "https://graph.microsoft.com/.default" }
+                };
+                return string.Join("&", form.Select(pair => System.Uri.EscapeDataString(pair.Key) + "=" + System.Uri.EscapeDataString(pair.Value)));
+              }</set-body>
+            </send-request>
+            <set-variable name="purview-graph-token" value="@{
+              var exchange = context.Variables.GetValueOrDefault<IResponse>("purview-obo");
+              if (exchange == null || exchange.StatusCode != 200) { return ""; }
+              return (string)exchange.Body.As<Newtonsoft.Json.Linq.JObject>()["access_token"] ?? "";
+            }" />
+            <!-- allowed, blocked, or why the check could not be made (the step and its HTTP status, no content). -->
+            <choose>
+              <when condition="@((string)context.Variables["purview-graph-token"] == "")">
+                <set-variable name="purview-verdict" value="@{
+                  var exchange = context.Variables.GetValueOrDefault<IResponse>("purview-obo");
+                  return "failed: token exchange, HTTP " + (exchange == null ? "none" : exchange.StatusCode.ToString());
+                }" />
+              </when>
+              <otherwise>
+                <set-variable name="purview-content" value="@((string)context.Variables["purview-text"])" />
+                <set-variable name="purview-activity" value="uploadText" />
+                <include-fragment fragment-id="purview-process-content" />
+                <set-variable name="purview-verdict" value="@((string)context.Variables["purview-outcome"])" />
+              </otherwise>
+            </choose>
+            <choose>
+              <when condition="@((string)context.Variables["purview-verdict"] == "blocked")">
+                <return-response>
+                  <set-status code="403" reason="Forbidden" />
+                  <set-header name="Content-Type" exists-action="override">
+                    <value>application/json</value>
+                  </set-header>
+                  <set-header name="x-purview-verdict" exists-action="override">
+                    <value>blocked</value>
+                  </set-header>
+                  <set-body>{"error": {"type": "blocked_by_data_policy", "message": "Microsoft Purview blocked this request: it contains information that your organization's data policy does not allow to send to the model."}}</set-body>
+                </return-response>
+              </when>
+              <when condition="@((string)context.Variables["purview-verdict"] != "allowed")">
+                <return-response>
+                  <set-status code="503" reason="Service Unavailable" />
+                  <set-header name="Content-Type" exists-action="override">
+                    <value>application/json</value>
+                  </set-header>
+                  <set-header name="x-purview-verdict" exists-action="override">
+                    <value>@((string)context.Variables["purview-verdict"])</value>
+                  </set-header>
+                  <set-body>@("{\"error\": {\"type\": \"data_policy_check_failed\", \"message\": \"The AI gateway could not check this request with Microsoft Purview (" + (string)context.Variables["purview-verdict"] + "), so it was not sent.\"}}")</set-body>
+                </return-response>
+              </when>
+            </choose>
+          </when>
+        </choose>
+      </when>
+    </choose>
+  </inbound>
+  <backend>
+    <forward-request />
+  </backend>
+  <outbound>
+    <!-- The model's answer, when the prompt was checked and allowed and the answer check is on. -->
+    <choose>
+      <when condition="@(context.Variables.GetValueOrDefault<string>("purview-verdict", "") == "allowed" && "{{purview-check-responses}}" == "on")">
+        <set-variable name="purview-content" value="@{
+          var body = context.Response.Body.As<string>(preserveContent: true);
+          var parts = new System.Collections.Generic.List<string>();
+          if (context.Response.Headers.GetValueOrDefault("Content-Type", "").Contains("text/event-stream")) {
+            foreach (var line in body.Split('\n')) {
+              var data = line.StartsWith("data:") ? line.Substring(5).Trim() : "";
+              if (!data.StartsWith("{")) { continue; }
+              var streamEvent = Newtonsoft.Json.Linq.JObject.Parse(data);
+              if ((string)streamEvent["type"] == "response.output_text.done") { parts.Add((string)streamEvent["text"] ?? ""); }
+            }
+          } else {
+            var answer = Newtonsoft.Json.Linq.JObject.Parse(body);
+            foreach (var text in answer.SelectTokens("$.output[*].content[*].text")) { parts.Add(text.ToString()); }
+          }
+          return string.Join("\n", parts);
+        }" />
+        <choose>
+          <when condition="@(!string.IsNullOrWhiteSpace((string)context.Variables["purview-content"]))">
+            <set-variable name="purview-activity" value="downloadText" />
+            <include-fragment fragment-id="purview-process-content" />
+            <set-variable name="purview-answer-verdict" value="@((string)context.Variables["purview-outcome"])" />
+            <choose>
+              <when condition="@((string)context.Variables["purview-answer-verdict"] == "blocked")">
+                <return-response>
+                  <set-status code="403" reason="Forbidden" />
+                  <set-header name="Content-Type" exists-action="override">
+                    <value>application/json</value>
+                  </set-header>
+                  <set-header name="x-purview-verdict" exists-action="override">
+                    <value>allowed</value>
+                  </set-header>
+                  <set-header name="x-purview-answer-verdict" exists-action="override">
+                    <value>blocked</value>
+                  </set-header>
+                  <set-body>{"error": {"type": "answer_blocked_by_data_policy", "message": "Microsoft Purview blocked the model's answer: it contains information that your organization's data policy does not allow to return."}}</set-body>
+                </return-response>
+              </when>
+              <when condition="@((string)context.Variables["purview-answer-verdict"] != "allowed")">
+                <return-response>
+                  <set-status code="503" reason="Service Unavailable" />
+                  <set-header name="Content-Type" exists-action="override">
+                    <value>application/json</value>
+                  </set-header>
+                  <set-header name="x-purview-answer-verdict" exists-action="override">
+                    <value>@((string)context.Variables["purview-answer-verdict"])</value>
+                  </set-header>
+                  <set-body>@("{\"error\": {\"type\": \"data_policy_check_failed\", \"message\": \"The AI gateway could not check the model's answer with Microsoft Purview (" + (string)context.Variables["purview-answer-verdict"] + "), so it was not returned.\"}}")</set-body>
+                </return-response>
+              </when>
+            </choose>
+          </when>
+        </choose>
+      </when>
+    </choose>
+    <!-- The verdicts on allowed calls too, so that a client can tell "checked and allowed" from "not checked". -->
+    <choose>
+      <when condition="@(context.Variables.ContainsKey("purview-verdict"))">
+        <set-header name="x-purview-verdict" exists-action="override">
+          <value>@((string)context.Variables["purview-verdict"])</value>
+        </set-header>
+      </when>
+    </choose>
+    <choose>
+      <when condition="@(context.Variables.ContainsKey("purview-answer-verdict"))">
+        <set-header name="x-purview-answer-verdict" exists-action="override">
+          <value>@((string)context.Variables["purview-answer-verdict"])</value>
+        </set-header>
+      </when>
+    </choose>
+  </outbound>
+  <on-error />
+</policies>

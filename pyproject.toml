@@ -1,0 +1,23 @@
+[project]
+name = "ai-agent-governance-with-agent365-demo"
+version = "0.1.0"
+description = "A demo of Agent 365 governing MCP servers exposed through AI gateways (Azure API Management and LiteLLM)."
+requires-python = ">=3.13"
+dependencies = [
+    "azure-identity>=1.27.0",
+    "openai>=3.42.0",
+    "python-dotenv>=1.2.1",
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.1.0",
+    "ruff>=0.17.3",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"

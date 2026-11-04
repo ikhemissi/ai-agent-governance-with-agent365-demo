@@ -1,0 +1,63 @@
+<!-- One Microsoft Purview check (processContent), shared by the prompt check and the answer check.
+     In:  purview-content (the text), purview-activity ("uploadText" for text sent to the model, "downloadText" for
+          the model's answer), purview-graph-token (the user's Graph token, from the On-Behalf-Of exchange).
+     Out: purview-outcome: "allowed", "blocked", or "failed: ..." (the step and its HTTP status, no content). -->
+<fragment>
+  <send-request mode="new" response-variable-name="purview-result" timeout="20" ignore-error="true">
+    <set-url>https://graph.microsoft.com/v1.0/me/dataSecurityAndGovernance/processContent</set-url>
+    <set-method>POST</set-method>
+    <set-header name="Authorization" exists-action="override">
+      <value>@("Bearer " + (string)context.Variables["purview-graph-token"])</value>
+    </set-header>
+    <set-header name="Content-Type" exists-action="override">
+      <value>application/json</value>
+    </set-header>
+    <set-body>@{
+      var activity = (string)context.Variables["purview-activity"];
+      var now = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
+      var entry = new Newtonsoft.Json.Linq.JObject {
+        ["@odata.type"] = "#microsoft.graph.processConversationMetadata",
+        ["identifier"] = Guid.NewGuid().ToString(),
+        ["content"] = new Newtonsoft.Json.Linq.JObject {
+          ["@odata.type"] = "#microsoft.graph.textContent",
+          ["data"] = (string)context.Variables["purview-content"]
+        },
+        ["name"] = activity == "downloadText" ? "AI gateway model answer" : "AI gateway model call",
+        ["correlationId"] = context.RequestId.ToString(),
+        ["sequenceNumber"] = activity == "downloadText" ? 1 : 0,
+        ["isTruncated"] = false,
+        ["createdDateTime"] = now,
+        ["modifiedDateTime"] = now
+      };
+      var protectedApp = new Newtonsoft.Json.Linq.JObject {
+        ["name"] = "AI gateway",
+        ["version"] = "1.0",
+        ["applicationLocation"] = new Newtonsoft.Json.Linq.JObject {
+          ["@odata.type"] = "#microsoft.graph.policyLocationApplication",
+          ["value"] = "${client_id}"
+        }
+      };
+      var request = new Newtonsoft.Json.Linq.JObject {
+        ["contentToProcess"] = new Newtonsoft.Json.Linq.JObject {
+          ["contentEntries"] = new Newtonsoft.Json.Linq.JArray { entry },
+          ["activityMetadata"] = new Newtonsoft.Json.Linq.JObject { ["activity"] = activity },
+          ["protectedAppMetadata"] = protectedApp,
+          ["integratedAppMetadata"] = new Newtonsoft.Json.Linq.JObject { ["name"] = "AI gateway", ["version"] = "1.0" }
+        }
+      };
+      return request.ToString();
+    }</set-body>
+  </send-request>
+  <set-variable name="purview-outcome" value="@{
+    var result = context.Variables.GetValueOrDefault<IResponse>("purview-result");
+    if (result == null || result.StatusCode >= 300) {
+      return "failed: processContent, HTTP " + (result == null ? "none" : result.StatusCode.ToString());
+    }
+    try {
+      var actions = result.Body.As<Newtonsoft.Json.Linq.JObject>().SelectTokens("$.policyActions[*].action").Select(token => token.ToString());
+      return actions.Any(action => action.Equals("restrictAccess", StringComparison.OrdinalIgnoreCase) || action.Equals("block", StringComparison.OrdinalIgnoreCase)) ? "blocked" : "allowed";
+    } catch {
+      return "failed: unreadable verdict";
+    }
+  }" />
+</fragment>

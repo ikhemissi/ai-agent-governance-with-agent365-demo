@@ -5,20 +5,48 @@ users talk to a model **through a gateway**, and the assistant uses the MCP tool
 is shown under the answer with its arguments and its result, or with the error or refusal that stopped it, so that
 what the gateway ran (or blocked) is visible.
 
-Two gateways, chosen with `CHAT_GATEWAY`:
+Two gateways, chosen with `CHAT_GATEWAY`.
 
-```text
-litellm (default): LiteLLM runs the tool loop
-browser (MSAL sign-in) ──Bearer token──▶ /api/copilotkit (checks token, origin, size)
-    ──team key (+ the user's gateway token with GATEWAY_SCOPE)──▶ LiteLLM POST /v1/responses with tool {type: mcp, server_url: litellm_proxy}
-    ──▶ LiteLLM lists and runs the team's MCP tools itself ──▶ streamed events ──▶ AG-UI events ──▶ chat
+**`litellm` (default): LiteLLM runs the tool loop.**
 
-apim: API Management is only a proxy, this server runs the tool loop
-browser (MSAL sign-in + gateway token) ──▶ /api/copilotkit (checks both tokens, origin, size)
-    ──the user's gateway token──▶ API Management MCP servers: initialize, tools/list ──▶ function tools
-    ──the user's gateway token──▶ API Management POST /openai/v1/responses (function tools) ──managed identity──▶ Foundry model
-    ◀── function calls ── this server runs them: MCP tools/call through API Management ── results ──▶ next round …
-    ──▶ the answer, then the tool lines ──▶ AG-UI events ──▶ chat
+```mermaid
+sequenceDiagram
+    actor User as User (browser)
+    participant App as Chat server<br/>/api/copilotkit
+    participant LiteLLM
+    participant MCP as MCP servers
+    User->>App: message, with the sign-in token (MSAL)
+    Note over App: checks the token, the origin and the size
+    App->>LiteLLM: POST /v1/responses with the team key<br/>(and the user's gateway token with GATEWAY_SCOPE)<br/>tool: type mcp, server_url litellm_proxy
+    LiteLLM->>MCP: lists and runs the team's MCP tools
+    MCP-->>LiteLLM: results
+    LiteLLM-->>App: streamed events: the text and the mcp_call items
+    App-->>User: AG-UI events: the answer and the tool lines
+```
+
+**`apim`: API Management is only a proxy; this server runs the tool loop.**
+
+```mermaid
+sequenceDiagram
+    actor User as User (browser)
+    participant App as Chat server<br/>/api/copilotkit
+    participant APIM as API Management
+    participant Model as Foundry model
+    participant MCP as MCP servers
+    User->>App: message, with the sign-in token and the gateway token (MSAL)
+    Note over App: checks both tokens, the origin and the size
+    App->>APIM: MCP initialize, tools/list (the user's gateway token)
+    APIM->>MCP: forwards
+    APIM-->>App: the servers' tools, as function tools
+    loop until the model answers without calling a tool
+        App->>APIM: POST /openai/v1/responses with the function tools (the user's gateway token)
+        APIM->>Model: forwards (API Management's managed identity)
+        APIM-->>App: function calls, or the answer (streamed)
+        App->>APIM: MCP tools/call for each function call (the user's gateway token)
+        APIM->>MCP: forwards
+        APIM-->>App: the results, sent to the model in the next round
+    end
+    App-->>User: AG-UI events: the answer, then the tool lines
 ```
 
 With LiteLLM, the app never calls an MCP server: LiteLLM decides which tools exist for the team's key and runs them;

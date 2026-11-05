@@ -7,11 +7,35 @@ workspace on 2026-11-04.
 
 | Record | Where | Query |
 |---|---|---|
+| **Step 5 at a glance:** the administrator's actions and Purview's refusals | Microsoft Defender, Advanced Hunting | [0](#0-step-5-at-a-glance-defender) |
 | The administrator's actions on both gateways (block, unblock, tool toggles) | Microsoft Defender, Advanced Hunting | [1](#1-the-administrators-actions-defender) |
 | Agent 365's write to the API | Azure activity log | [2](#2-agent-365s-write-to-the-api-azure-activity-log) |
 | Each MCP request, refused ones without a backend call | Log Analytics, API Management gateway logs | [3](#3-each-request-to-the-notes-server-api-management-gateway-logs), [4](#4-requests-refused-by-a-block) |
 | The chat's tool calls with the user | Log Analytics, Application Insights | [5](#5-the-chats-tool-calls-with-the-user-application-insights) |
 | Optional: what Purview refused at the gateway | Microsoft Defender, Advanced Hunting; Microsoft Purview portal | [6](#6-optional-what-purview-refused-at-the-gateway) |
+
+## 0. Step 5 at a glance (Defender)
+
+One result for the governance story: who blocked or allowed what in Agent 365, on which gateway, and which model calls
+Purview refused at the gateway, each with the user. Run it for the rehearsal's window; `DLPRuleMatch` rows appear only
+if the Purview check was on ([PURVIEW.md](PURVIEW.md)).
+
+```kusto
+CloudAppEvents
+| where Timestamp > ago(1d)
+| where (ActionType == "ApiEndpointCallEvent" and tostring(RawEventData) has "mcpservers") or ActionType == "DLPRuleMatch"
+| extend Path = tostring(parse_json(tostring(RawEventData.JsonPropertiesCollection))["url.path"])
+| extend Record = case(ActionType == "DLPRuleMatch", "Purview refused a model call",
+                       Path endswith "/access/all", "Agent 365: server access",
+                       Path endswith "/updateState", "Agent 365: server state",
+                       Path endswith "/state", "Agent 365: tool state",
+                       "other"),
+         Gateway = iff(ActionType == "DLPRuleMatch", "AI gateway (Purview check)", extract(@"/agent365/([^/]+)/", 1, Path)),
+         Server = extract(@"/mcpservers/([^/]+)", 1, Path),
+         Tool = extract(@"/tools/([^/]+)/", 1, Path)
+| project Timestamp, AccountDisplayName, Record, Gateway, Server, Tool
+| order by Timestamp asc
+```
 
 ## 1. The administrator's actions (Defender)
 

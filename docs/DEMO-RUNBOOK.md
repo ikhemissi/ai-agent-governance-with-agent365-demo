@@ -28,7 +28,7 @@ shows the rehearsal's records, not the live ones.
 - [ ] "MS_Learn_LiteLLM" has been blocked and unblocked once (per-tool toggles apply from then on).
 - [ ] Run steps 1–4 once, in full. Note in `local/REHEARSAL.md` (git-ignored, never committed) the UTC time of each
       click (block, unblock, tool disabled, tool enabled) and what the timer and the probe printed.
-- [ ] 30 minutes later, run the queries of [queries.md](queries.md) for the rehearsal's window; save the results and
+- [ ] 30 minutes later, run the queries of [queries.md](queries.md) for the rehearsal's window (query 0 first); save the results and
       screenshots (redacted if they leave your machine) for step 5. Note their time window in `local/REHEARSAL.md`.
 - [ ] Step 6 once, if it is in the session: both Purview switches on, the two chat tests, both switches off
       ([PURVIEW.md](PURVIEW.md)), from the portal as on the day, with the named values page open in a tab. Its
@@ -45,7 +45,7 @@ shows the rehearsal's records, not the live ones.
   1. the chat (`azd env get-value CHAT_UI_URL`), signed in, **new conversation**;
   2. Microsoft 365 admin center, Agents > Tools;
   3. Agents > Settings > Gateways;
-  4. Defender, Advanced Hunting, with the rehearsal's saved results;
+  4. Defender, Advanced Hunting, with query 0 of [queries.md](queries.md) for the rehearsal's window, and its result;
   5. Log Analytics (the platform's workspace), with the saved queries;
   6. if step 6 is in the session: the API Management instance > APIs > Named values.
 - [ ] Two terminals in the repository folder, large font:
@@ -69,7 +69,7 @@ Fallback: the rehearsal's screenshot of the same conversation.
 
 | Do | Show | Say |
 |---|---|---|
-| Agents > Tools; search "(APIM)" then "(LiteLLM)"; open each server | "Team notes (APIM)": the API Management instance as publisher, no tools. "MS_Learn_LiteLLM": source LiteLLM, its three tools with a toggle each | Agent 365 reads both gateways and lists their MCP servers without anyone registering them in Agent 365: API Management servers within about 5 minutes of the consent and a new one within about a minute ([APIM 01](https://github.com/ikhemissi/spike-agent365-apim-tools-gateway/blob/main/docs/experiments/01-proof-on-public-servers.md), [APIM 05](https://github.com/ikhemissi/spike-agent365-apim-tools-gateway/blob/main/docs/experiments/05-redeploy-and-discovery.md)); LiteLLM within about a minute ([LiteLLM 03](https://github.com/ikhemissi/spike-agent365-litellm-tools-gateway/blob/main/docs/experiments/03-connect-agent365.md)). On API Management Standard v2 the server is governed as a whole; LiteLLM reports its tools. |
+| Agents > Tools; search "(APIM)" then "LiteLLM"; open each server | "Team notes (APIM)": the API Management instance as publisher, no tools. "MS_Learn_LiteLLM": source LiteLLM, its three tools with a toggle each | Agent 365 reads both gateways and lists their MCP servers without anyone registering them in Agent 365: API Management servers within about 5 minutes of the consent and a new one within about a minute ([APIM 01](https://github.com/ikhemissi/spike-agent365-apim-tools-gateway/blob/main/docs/experiments/01-proof-on-public-servers.md), [APIM 05](https://github.com/ikhemissi/spike-agent365-apim-tools-gateway/blob/main/docs/experiments/05-redeploy-and-discovery.md)); LiteLLM within about a minute ([LiteLLM 03](https://github.com/ikhemissi/spike-agent365-litellm-tools-gateway/blob/main/docs/experiments/03-connect-agent365.md)). On API Management Standard v2 the server is governed as a whole; LiteLLM reports its tools. |
 | Agents > Settings > Gateways | The Azure connection and the LiteLLM gateway | Two ways to connect: for Azure, a tenant consent that gives Agent 365 an Azure role over API Management; for LiteLLM, the gateway's URL and an admin key that Agent 365 holds. |
 
 Fallback: the rehearsal's screenshots of both pages.
@@ -78,7 +78,7 @@ Fallback: the rehearsal's screenshots of both pages.
 
 | Do | Show | Say |
 |---|---|---|
-| Put terminal 1 (`block_timer.py`) next to the admin center. Open "Team notes (APIM)", click **Block**, and press **Enter** in terminal 1 at the same moment | The timer switching from `OK` to `BLOCKED (-32000 AccessBlockedByGateway on initialize, HTTP 200)` a few seconds after Enter | Agent 365 writes one property of the API in API Management (`accessState`), and API Management refuses the next request from any client: measured at 4–8 s ([APIM 02](https://github.com/ikhemissi/spike-agent365-apim-tools-gateway/blob/main/docs/experiments/02-block-and-unblock.md), [APIM 05](https://github.com/ikhemissi/spike-agent365-apim-tools-gateway/blob/main/docs/experiments/05-redeploy-and-discovery.md)). Agent 365 is not in the call path: the gateway enforces it. |
+| Put terminal 1 (`block_timer.py`) next to the admin center. Open "Team notes (APIM)", click **Block**, and press **Enter** in terminal 1 at the same moment | The timer switching from `OK` to `BLOCKED (-32000 AccessBlockedByGateway on initialize, HTTP 200)` a few seconds after Enter | Agent 365 writes one property of the API in API Management (`accessState`), and API Management refuses the next request from any client: within about 10 seconds, 4–10 s measured ([APIM 02](https://github.com/ikhemissi/spike-agent365-apim-tools-gateway/blob/main/docs/experiments/02-block-and-unblock.md), [APIM 05](https://github.com/ikhemissi/spike-agent365-apim-tools-gateway/blob/main/docs/experiments/05-redeploy-and-discovery.md)). Agent 365 is not in the call path: the gateway enforces it. |
 | In the chat, **new conversation**: "List the notes." | An error line for `notes (connect)` with "Access to MCP server 'notes' is blocked."; the model says it can't reach the notes | A block stops new tool calls. In a conversation that already read notes, the model can still repeat what it read earlier: that is why this is a new conversation. |
 | Click **Unblock**, press **Enter** in terminal 1 | The timer back to `OK (3 tools)` | Unblocking restores access, measured at 8–14 s. |
 
@@ -104,14 +104,14 @@ Fallback: the rehearsal's probe output from `local/REHEARSAL.md`.
 
 ### 5. Evidence from the rehearsal (3 min)
 
-Show the results saved the day before, with the queries of [queries.md](queries.md):
+Show the rehearsal's records, with the queries of [queries.md](queries.md):
 
 | Show | Say |
 |---|---|
-| Advanced Hunting: the administrator's actions (`ApiEndpointCallEvent`): the APIM block and unblock, the LiteLLM tool toggles | Each change made in Agent 365, on either gateway, is recorded in Defender with the administrator who made it, the server and, for a tool toggle, the tool. |
-| Azure activity log: `apis/write` on the notes API by Agent 365's service principal | Azure records the change Agent 365 made in API Management. |
-| API Management gateway logs: the notes API's requests, the refused ones without a backend call | The gateway logs every MCP request, the refused ones too. |
-| Application Insights: the chat's runs and tool calls with the user | The app's own telemetry names the user and the tool. |
+| Advanced Hunting, [query 0](queries.md#0-step-5-at-a-glance-defender): one row per action and refusal | Every change made in Agent 365, on either gateway, is recorded with the administrator, the server and, for a tool toggle, the tool; with the Purview check, every model call Purview refused at the gateway is recorded with the user. One place for the governance story. |
+| Log Analytics, [query 4](queries.md#4-requests-refused-by-a-block): the notes API's requests per minute, the blocked minutes without a backend call | The gateway logs every MCP request, the refused ones too: the runtime keeps its own record. |
+
+If asked, in tabs: the Azure activity log (`apis/write` by Agent 365's service principal, [query 2](queries.md#2-agent-365s-write-to-the-api-azure-activity-log)), the chat's tool calls with the user ([query 5](queries.md#5-the-chats-tool-calls-with-the-user-application-insights)), and Purview's Activity explorer ([query 6](queries.md#6-optional-what-purview-refused-at-the-gateway)).
 
 Fallback: the screenshots saved the day before.
 

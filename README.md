@@ -83,7 +83,7 @@ The behaviour shown here was measured in two spikes (November 2026), each with i
 | Connection to Agent 365 | A tenant consent: Agent 365's service principal gets the Azure role **"A365 Gateway Policy Operator"** (read API Management, write its APIs) at the **tenant root management group**; plan it with the tenant's Azure administrators | The gateway URL and a LiteLLM `proxy_admin` key, held by Agent 365 |
 | Discovery | Servers listed within about 5 minutes of the consent; a server added later within about 1 minute | Servers and tools listed within about 1 minute |
 | In Agents > Tools | The API's display name, the API Management instance as publisher, no tools (governed per server) | The server, source "LiteLLM", and its tools |
-| Block | `accessState: blocked` on the API, applied in 4–8 s; unblock in 8–14 s | An empty, enforced tool allowlist, applied in about 2 s; unblock within 10 s |
+| Block | `accessState: blocked` on the API, applied within about 10 s (4–10 s measured); unblock in 8–14 s | An empty, enforced tool allowlist, applied in about 2 s; unblock within 10 s |
 | What a caller gets | HTTP 200 with JSON-RPC error `-32000` `AccessBlockedByGateway`, on `initialize` | "Tool … is not allowed for server …" |
 | Per tool | Per server on Standard v2; tool-level control is a capability of the AI Gateway tier | Per tool once the server has been blocked and unblocked once, applied in 6–8 s |
 | Good to know | The block is a property of the API: limit write access to API Management, keep `accessState` out of infrastructure code, and block a recreated API again | The `proxy_admin` key is full admin of the gateway: keep it in a vault and rotate it |

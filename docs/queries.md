@@ -11,6 +11,7 @@ workspace on 2026-11-04.
 | Agent 365's write to the API | Azure activity log | [2](#2-agent-365s-write-to-the-api-azure-activity-log) |
 | Each MCP request, refused ones without a backend call | Log Analytics, API Management gateway logs | [3](#3-each-request-to-the-notes-server-api-management-gateway-logs), [4](#4-requests-refused-by-a-block) |
 | The chat's tool calls with the user | Log Analytics, Application Insights | [5](#5-the-chats-tool-calls-with-the-user-application-insights) |
+| Optional: what Purview refused at the gateway | Microsoft Purview portal | [6](#6-optional-what-purview-refused-at-the-gateway) |
 
 ## 1. The administrator's actions (Defender)
 
@@ -107,3 +108,18 @@ AppDependencies
 | project TimeGenerated, User, Tool, Server, Success, DurationMs, Outcome, OperationId
 | order by TimeGenerated asc
 ```
+
+## 6. Optional: what Purview refused at the gateway
+
+With the Purview check of [PURVIEW.md](PURVIEW.md), each refusal is recorded in the Microsoft Purview portal (checked
+the morning after a test, 2026-11-05):
+
+- **Data loss prevention > Activity explorer**: activity "DLP rule matched", location "AI gateway" (the gateway app),
+  enforcement plane "Application", with the user, the policy and the rule. One record per refused check (a prompt, a
+  tool result or an answer).
+- **Data loss prevention > Alerts**: "DLP policy match for applications", severity High (as set in the rule), with the
+  user; location "ExtendedApplications".
+
+The model calls themselves reach Foundry with API Management's identity, so the evidence of a check is the gateway's
+DLP record above, with the user.
+

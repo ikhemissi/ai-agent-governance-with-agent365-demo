@@ -95,6 +95,9 @@ conversation after a refusal: the chat sends the conversation again with the nex
   `answer_blocked_by_data_policy`; streamed and non-streamed answers were both read and checked.
 - Prompt and tool-result checks in the chat: refused with 403 `blocked_by_data_policy`; other messages unchanged.
 - The On-Behalf-Of exchange signed by API Management's managed identity worked; no secret is involved.
+- Evidence (checked the next morning): one "DLP rule matched" record per refused check in Purview's Activity explorer
+  (location "AI gateway", enforcement plane "Application", with the user, the policy and the rule), and High alerts
+  "DLP policy match for applications" ([queries.md](queries.md#6-optional-what-purview-refused-at-the-gateway)).
 
 ## Turn it off or remove it
 

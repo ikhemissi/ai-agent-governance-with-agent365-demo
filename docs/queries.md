@@ -74,10 +74,12 @@ actions, from query 2 for API Management, or from the timer's and the probe's ou
 ## 2. Agent 365's write to the API (Azure activity log)
 
 In the Azure portal: the resource group (`azd env get-value AZURE_RESOURCE_GROUP`) > **Activity log**; set the
-timespan to the rehearsal's, and add the filter Operation = **Create or update API**. Each block and unblock is one
-"Create or update API" event on the notes API, succeeded.
+timespan to the rehearsal's, and add the filter Operation = **Create API or Update API**. Each block and unblock is one
+operation on the notes API (`…/apis/notes`), listed as Started and Succeeded; the events appear a couple of minutes
+after the action.
 
-"Event initiated by" names Agent 365's service principal (a GUID, where a person's writes show their user name). The API's current state: `accessState` on the API, read with management API version 2025-09-01-preview.
+"Event initiated by" shows **Agent365Observability**, the application Agent 365 acts as (its service principal is the
+event's `caller` in the details), where a person's changes show their user name. The API's current state: `accessState` on the API, read with management API version 2025-09-01-preview.
 
 ## 3. Each request to the notes server (API Management gateway logs)
 

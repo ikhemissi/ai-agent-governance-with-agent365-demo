@@ -47,7 +47,7 @@ shows the rehearsal's records, not the live ones.
   3. Agents > Settings > Gateways;
   4. Defender, Advanced Hunting, with queries 0 and 6 of [queries.md](queries.md) for the rehearsal's window, and their results;
   5. Log Analytics (the platform's workspace), with the saved queries;
-  6. the resource group's Activity log, filtered on "Create or update API" for the rehearsal's window;
+  6. the resource group's Activity log, filtered on "Create API or Update API" for the rehearsal's window;
   7. if step 6 is in the session: the API Management instance > APIs > Named values.
 - [ ] Two terminals in the repository folder, large font:
   - terminal 1: `uv run python src/block_timer.py` (prints `OK (3 tools)` every second);
@@ -113,7 +113,7 @@ Show the rehearsal's records, with the queries of [queries.md](queries.md):
 | If step 6 was rehearsed: Advanced Hunting, [query 6](queries.md#6-optional-what-purview-refused-at-the-gateway): one row per refusal | With the Purview check, every model call Purview refused at the gateway is recorded too, with the user. |
 | Log Analytics, [query 4](queries.md#4-requests-refused-by-a-block): the notes API's requests per minute, the blocked minutes without a backend call | The gateway logs every MCP request, the refused ones too: the runtime keeps its own record. |
 
-If asked, in tabs: the resource group's Activity log in the Azure portal ("Create or update API" by Agent 365's service principal, [query 2](queries.md#2-agent-365s-write-to-the-api-azure-activity-log)), the chat's tool calls with the user ([query 5](queries.md#5-the-chats-tool-calls-with-the-user-application-insights)), and Purview's Activity explorer (also in [query 6](queries.md#6-optional-what-purview-refused-at-the-gateway)).
+If asked, in tabs: the resource group's Activity log in the Azure portal ("Create API or Update API" initiated by Agent365Observability, [query 2](queries.md#2-agent-365s-write-to-the-api-azure-activity-log)), the chat's tool calls with the user ([query 5](queries.md#5-the-chats-tool-calls-with-the-user-application-insights)), and Purview's Activity explorer (also in [query 6](queries.md#6-optional-what-purview-refused-at-the-gateway)).
 
 Fallback: the screenshots saved the day before.
 

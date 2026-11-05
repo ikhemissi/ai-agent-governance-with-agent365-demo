@@ -7,40 +7,17 @@ workspace on 2026-11-04.
 
 | Record | Where | Query |
 |---|---|---|
-| **Step 5:** the administrator's actions on both gateways, at a glance | Microsoft Defender, Advanced Hunting | [0](#0-step-5-the-administrators-actions-at-a-glance-defender) |
 | The administrator's actions on both gateways (block, unblock, tool toggles) | Microsoft Defender, Advanced Hunting | [1](#1-the-administrators-actions-defender) |
 | Agent 365's write to the API | Azure activity log | [2](#2-agent-365s-write-to-the-api-azure-activity-log) |
 | Each MCP request, refused ones without a backend call | Log Analytics, API Management gateway logs | [3](#3-each-request-to-the-notes-server-api-management-gateway-logs), [4](#4-requests-refused-by-a-block) |
 | The chat's tool calls with the user | Log Analytics, Application Insights | [5](#5-the-chats-tool-calls-with-the-user-application-insights) |
 | Optional: what Purview refused at the gateway | Microsoft Defender, Advanced Hunting; Microsoft Purview portal | [6](#6-optional-what-purview-refused-at-the-gateway) |
 
-## 0. Step 5: the administrator's actions at a glance (Defender)
-
-Who blocked or allowed what in Agent 365, on which gateway, with the administrator: one row per action. These records
-were all available within 20 minutes in our tests. Purview's refusals are a separate query
-([6](#6-optional-what-purview-refused-at-the-gateway)), as their arrival time differs.
-
-```kusto
-CloudAppEvents
-| where Timestamp > ago(1d)
-| where ActionType == "ApiEndpointCallEvent" and tostring(RawEventData) has "mcpservers"
-| extend Path = tostring(parse_json(tostring(RawEventData.JsonPropertiesCollection))["url.path"])
-| extend Action = case(Path endswith "/access/all", "server access",
-                       Path endswith "/updateState", "server state",
-                       Path endswith "/state", "tool state",
-                       "other"),
-         Gateway = extract(@"/agent365/([^/]+)/", 1, Path),
-         Server = extract(@"/mcpservers/([^/]+)", 1, Path),
-         Tool = extract(@"/tools/([^/]+)/", 1, Path)
-| project Timestamp, AccountDisplayName, Gateway, Action, Server, Tool
-| order by Timestamp asc
-```
-
-For LiteLLM, `Server` is the server's id in LiteLLM (`src/configure_litellm.py` prints it).
-
 ## 1. The administrator's actions (Defender)
 
-Microsoft Defender portal > Hunting > Advanced hunting. Records arrive 10–30 minutes after the action.
+Step 5's main query. Microsoft Defender portal > Hunting > Advanced hunting. These records were all available within
+20 minutes in our tests. Purview's refusals are a separate query ([6](#6-optional-what-purview-refused-at-the-gateway)),
+as their arrival time differs.
 
 ```kusto
 CloudAppEvents
@@ -153,7 +130,7 @@ CloudAppEvents
 ```
 
 Their arrival time was not measured yet (the records were checked the morning after): look for them after the
-administrator's actions of query 0.
+administrator's actions of query 1.
 
 - `DLPRuleMatch`: one record per refused check (a prompt, a tool result or an answer), with the user.
 - `ConnectedAIAppInteraction`: the interactions the gateway sent to Purview (allowed or refused); other connected AI

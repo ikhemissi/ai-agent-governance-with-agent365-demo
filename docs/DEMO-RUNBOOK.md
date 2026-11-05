@@ -28,7 +28,7 @@ shows the rehearsal's records, not the live ones.
 - [ ] "MS_Learn_LiteLLM" has been blocked and unblocked once (per-tool toggles apply from then on).
 - [ ] Run steps 1–4 once, in full. Note in `local/REHEARSAL.md` (git-ignored, never committed) the UTC time of each
       click (block, unblock, tool disabled, tool enabled) and what the timer and the probe printed.
-- [ ] 30 minutes later, run the queries of [queries.md](queries.md) for the rehearsal's window (query 0 first, then query 6 if step 6 was rehearsed); save the results and
+- [ ] 30 minutes later, run the queries of [queries.md](queries.md) for the rehearsal's window (query 1 first, then query 6 if step 6 was rehearsed); save the results and
       screenshots (redacted if they leave your machine) for step 5. Note their time window in `local/REHEARSAL.md`.
 - [ ] Step 6 once, if it is in the session: both Purview switches on, the two chat tests, both switches off
       ([PURVIEW.md](PURVIEW.md)), from the portal as on the day, with the named values page open in a tab. Its
@@ -45,7 +45,7 @@ shows the rehearsal's records, not the live ones.
   1. the chat (`azd env get-value CHAT_UI_URL`), signed in, **new conversation**;
   2. Microsoft 365 admin center, Agents > Tools;
   3. Agents > Settings > Gateways;
-  4. Defender, Advanced Hunting, with queries 0 and 6 of [queries.md](queries.md) for the rehearsal's window, and their results;
+  4. Defender, Advanced Hunting, with queries 1 and 6 of [queries.md](queries.md) for the rehearsal's window, and their results;
   5. Log Analytics (the platform's workspace), with the saved queries;
   6. the resource group's Activity log, filtered on "Create API or Update API" for the rehearsal's window;
   7. if step 6 is in the session: the API Management instance > APIs > Named values.
@@ -109,7 +109,7 @@ Show the rehearsal's records, with the queries of [queries.md](queries.md):
 
 | Show | Say |
 |---|---|
-| Advanced Hunting, [query 0](queries.md#0-step-5-the-administrators-actions-at-a-glance-defender): one row per action | Every change made in Agent 365, on either gateway, is recorded with the administrator, the gateway, the server and, for a tool toggle, the tool. |
+| Advanced Hunting, [query 1](queries.md#1-the-administrators-actions-defender): one row per action | Every change made in Agent 365, on either gateway, is recorded with the administrator, the gateway, the server and, for a tool toggle, the tool. |
 | If step 6 was rehearsed: Advanced Hunting, [query 6](queries.md#6-optional-what-purview-refused-at-the-gateway): one row per refusal | With the Purview check, every model call Purview refused at the gateway is recorded too, with the user. |
 | Log Analytics, [query 4](queries.md#4-requests-refused-by-a-block): the notes API's requests per minute, the blocked minutes without a backend call | The gateway logs every MCP request, the refused ones too: the runtime keeps its own record. |
 

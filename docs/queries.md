@@ -11,7 +11,7 @@ workspace on 2026-11-04.
 | Agent 365's write to the API | Azure activity log | [2](#2-agent-365s-write-to-the-api-azure-activity-log) |
 | Each MCP request, refused ones without a backend call | Log Analytics, API Management gateway logs | [3](#3-each-request-to-the-notes-server-api-management-gateway-logs), [4](#4-requests-refused-by-a-block) |
 | The chat's tool calls with the user | Log Analytics, Application Insights | [5](#5-the-chats-tool-calls-with-the-user-application-insights) |
-| Optional: what Purview refused at the gateway | Microsoft Purview portal | [6](#6-optional-what-purview-refused-at-the-gateway) |
+| Optional: what Purview refused at the gateway | Microsoft Defender, Advanced Hunting; Microsoft Purview portal | [6](#6-optional-what-purview-refused-at-the-gateway) |
 
 ## 1. The administrator's actions (Defender)
 
@@ -111,12 +111,25 @@ AppDependencies
 
 ## 6. Optional: what Purview refused at the gateway
 
-With the Purview check of [PURVIEW.md](PURVIEW.md), each refusal is recorded in the Microsoft Purview portal (checked
-the morning after a test, 2026-11-05):
+With the Purview check of [PURVIEW.md](PURVIEW.md), each refusal is recorded (checked the morning after a test,
+2026-11-05). In Advanced Hunting:
+
+```kusto
+CloudAppEvents
+| where Timestamp > ago(1d)
+| where ActionType in ("DLPRuleMatch", "ConnectedAIAppInteraction")
+| summarize Count = count(), First = min(Timestamp), Last = max(Timestamp) by ActionType, AccountDisplayName
+```
+
+- `DLPRuleMatch`: one record per refused check (a prompt, a tool result or an answer), with the user.
+- `ConnectedAIAppInteraction`: the interactions the gateway sent to Purview (allowed or refused); other connected AI
+  apps of the tenant appear here too.
+- The policy's creation and changes appear as `New-DlpCompliancePolicy`, `Set-DlpComplianceRule`, … with who made them.
+
+In the Microsoft Purview portal:
 
 - **Data loss prevention > Activity explorer**: activity "DLP rule matched", location "AI gateway" (the gateway app),
-  enforcement plane "Application", with the user, the policy and the rule. One record per refused check (a prompt, a
-  tool result or an answer).
+  enforcement plane "Application", with the user, the policy and the rule: the same records as `DLPRuleMatch`.
 - **Data loss prevention > Alerts**: "DLP policy match for applications", severity High (as set in the rule), with the
   user; location "ExtendedApplications".
 

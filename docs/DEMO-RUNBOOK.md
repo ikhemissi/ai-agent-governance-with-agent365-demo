@@ -132,8 +132,9 @@ How it works: [PURVIEW.md](PURVIEW.md).
 After the step: both named values back to `off` in the portal, or
 `uv run python src/purview_check.py switch off --answers && uv run python src/purview_check.py switch off`.
 
-Evidence, if time allows: the rehearsal's records in the Purview portal, Data loss prevention > Activity explorer ("DLP
-rule matched", location "AI gateway", with the user) and Alerts ([queries.md](queries.md#6-optional-what-purview-refused-at-the-gateway)).
+Evidence, if time allows: the rehearsal's records, in Advanced Hunting (`DLPRuleMatch`) or in the Purview portal (Data
+loss prevention > Activity explorer: "DLP rule matched", location "AI gateway", with the user, the policy and the rule)
+([queries.md](queries.md#6-optional-what-purview-refused-at-the-gateway)).
 
 Fallback: the rehearsal's screenshots of both refusals, and `uv run python src/purview_check.py check` (three lines: clean
 allowed, card refused, answer refused).

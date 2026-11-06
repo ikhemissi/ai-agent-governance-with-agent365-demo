@@ -17,7 +17,7 @@ workspace on 2026-11-04.
 
 Step 5's main query. Microsoft Defender portal > Hunting > Advanced hunting. These records were all available within
 20 minutes in our tests. Purview's refusals are a separate query ([6](#6-optional-what-purview-refused-at-the-gateway)),
-as their arrival time differs.
+as they arrive later.
 
 ```kusto
 CloudAppEvents
@@ -109,8 +109,7 @@ AppDependencies
 
 ## 6. Optional: what Purview refused at the gateway
 
-With the Purview check of [PURVIEW.md](PURVIEW.md), each refusal is recorded (checked the morning after a test,
-2026-11-05). In Advanced Hunting, one row per refused check:
+With the Purview check of [PURVIEW.md](PURVIEW.md), each refusal is recorded. In Advanced Hunting, one row per refused check:
 
 ```kusto
 CloudAppEvents
@@ -129,8 +128,12 @@ CloudAppEvents
 | summarize Count = count(), First = min(Timestamp), Last = max(Timestamp) by ActionType, AccountDisplayName
 ```
 
-Their arrival time was not measured yet (the records were checked the morning after): look for them after the
-administrator's actions of query 1.
+Their arrival is slower than the administrator's actions of query 1: in our tests they were not there 45 minutes after
+the refusals, and were there the next morning. Run this query the day after a rehearsal.
+
+The second query counts the checks the gateway sent, with the user: in our test, a refused prompt was one, and an
+allowed prompt whose answer was refused was two. Rows for "guest" are interactions recorded without a user (for example
+model calls made with an app's own identity), not the gateway's checks.
 
 - `DLPRuleMatch`: one record per refused check (a prompt, a tool result or an answer), with the user.
 - `ConnectedAIAppInteraction`: the interactions the gateway sent to Purview (allowed or refused); other connected AI

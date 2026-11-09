@@ -1,17 +1,33 @@
+<div align="center">
+
 # AI agent governance with Agent 365 and AI gateways
 
 **Your AI gateway runs the traffic. Agent 365 governs it.**
+
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
+[![IaC: Terraform](https://img.shields.io/badge/IaC-Terraform-623CE4?style=flat-square&logo=terraform)](infra)
+[![Deploy: azd](https://img.shields.io/badge/deploy-azd-0078D4?style=flat-square)](azure.yaml)
+[![Protocol: MCP](https://img.shields.io/badge/protocol-MCP-555555?style=flat-square)](services/notes-mcp)
+
+[**Quick start**](#quick-start) · [**What the demo shows**](#what-the-demo-shows) · [**Architecture**](#architecture) · [**Evidence**](#evidence-behind-this-demo) · [**Cost**](#cost)
+
+</div>
 
 A chat agent reaches its model and its MCP tools only through **Azure API Management**, with the user's own token.
 From the Microsoft 365 admin center, **Agent 365** discovers those tools and blocks them within seconds, without sitting
 in the call path, on API Management and on a second gateway, **LiteLLM**. Optionally, **Microsoft Purview** checks what
 goes to the model and what comes back.
 
-**Run it:** [docs/DEMO-RUNBOOK.md](docs/DEMO-RUNBOOK.md) · **Evidence queries:** [docs/queries.md](docs/queries.md)
-
 <p align="center">
   <img src="docs/images/architecture.svg" alt="A chat agent reaches its model and MCP tools only through Azure API Management with the user's token; Agent 365 governs API Management and LiteLLM from the side (discover, block, per-tool control), and every action leaves evidence in Defender, the activity log, gateway logs and app telemetry. Optionally, API Management checks prompts and answers with Microsoft Purview as the user. Numbered badges mark the six demo steps." width="900">
 </p>
+
+## Why this demo
+
+Organisations already put an AI gateway in front of their models and tools, to authenticate callers, log every request
+and control costs. As agents start calling tools on their own, administrators also need to see which tools exist, stop
+one quickly, and show afterwards who did what. This demo shows how Agent 365 adds that governance to the gateways you
+run, API Management and LiteLLM, from the Microsoft 365 admin center, without changing the agent's call path.
 
 ## What the demo shows
 
@@ -23,6 +39,8 @@ goes to the model and what comes back.
 | 4 | Per tool | Disabling one tool of "MS_Learn_LiteLLM": a probe shows that tool refused within seconds while the others still work. |
 | 5 | Evidence | Records from a run the day before: the administrator's actions on both gateways in Microsoft Defender, API Management's gateway logs, Azure's activity log, the app's telemetry. |
 | 6 | Optional: Purview at the gateway | API Management checks what goes to the model and what comes back with Microsoft Purview, as the user: a credit card number is refused in a prompt and in an answer ([PURVIEW.md](docs/PURVIEW.md)). |
+
+**Run it:** [docs/DEMO-RUNBOOK.md](docs/DEMO-RUNBOOK.md) · **Evidence queries:** [docs/queries.md](docs/queries.md)
 
 ## Architecture
 
@@ -91,14 +109,28 @@ The behaviour shown here was measured in two spikes (November 2026), each with i
 The Purview check was built and tried in this repository (2026-11-04): prompts, tool results and answers with a test
 credit card number were refused; see [PURVIEW.md](docs/PURVIEW.md#observed-2026-11-04).
 
-## Deploy
+## What runs where
 
-Needs: an Azure subscription where you can create resources and role assignments; permission to create Entra app
-registrations; a Microsoft 365 tenant with Agent 365, and an administrator who can connect gateways in the Microsoft
-365 admin center. For the optional Purview check: an administrator who can grant tenant-wide consent, a Compliance
-Administrator, and Microsoft Purview pay-as-you-go billing. Tools: Azure CLI, Azure Developer CLI (azd), Terraform, uv
-(and PowerShell 7 for the Purview check's DLP policy). Images are built in Azure Container Registry, so no local
-container engine is needed.
+| Path | Content |
+|---|---|
+| `infra/` | One Terraform root per azd layer; `apim-mcp` and `apim-purview` are the demo's own, the others are shared building blocks |
+| `services/` | The chat UI (Next.js) and the notes MCP server (Python) |
+| `src/` | The demo's scripts ([src/README.md](src/README.md)): `configure_litellm.py`, `check_environment.py`, `block_timer.py`, `litellm_tools_probe.py`, `purview_check.py`, `create-dlp-policy.ps1` |
+| `docs/` | [The runbook](docs/DEMO-RUNBOOK.md), [the evidence queries](docs/queries.md) and [Purview at the gateway](docs/PURVIEW.md) |
+
+## Quick start
+
+### 1. Prerequisites
+
+- An Azure subscription where you can create resources and role assignments, and permission to create Entra app
+  registrations.
+- A Microsoft 365 tenant with Agent 365, and an administrator who can connect gateways in the Microsoft 365 admin center.
+- For the optional Purview check: an administrator who can grant tenant-wide consent, a Compliance Administrator, and
+  Microsoft Purview pay-as-you-go billing.
+- Tools: Azure CLI, Azure Developer CLI (azd), Terraform, uv, and PowerShell 7 for the Purview check's DLP policy.
+  Images are built in Azure Container Registry, so no local container engine is needed.
+
+### 2. Deploy
 
 The infrastructure is a set of azd layers (`infra/<layer>/`, one Terraform root each), provisioned in the order of
 `azure.yaml`: `azure-platform`, `foundry-model`, `postgres`, `litellm-gateway`, `apim-gateway`, `notes-mcp`,
@@ -123,7 +155,7 @@ uv run python src/check_environment.py            # every check OK
 Optional, the Purview check: create its DLP policy and try it as described in [PURVIEW.md](docs/PURVIEW.md#set-up). Both
 of its switches start `off`.
 
-### Connect Agent 365 to the two gateways
+### 3. Connect Agent 365 to the two gateways
 
 In the Microsoft 365 admin center, as an administrator who can manage Agent 365 (see
 [Manage Tools Gateway](https://learn.microsoft.com/en-us/microsoft-agent-365/admin/manage-tools-gateway)):
@@ -140,13 +172,46 @@ In the Microsoft 365 admin center, as an administrator who can manage Agent 365 
 4. **Per-tool toggles on LiteLLM** apply once the server is under an enforced allowlist: block "MS_Learn_LiteLLM",
    then unblock it, once.
 
-## Cost
+### 4. Run the demo
 
-While it runs, about $1.5 an hour (prices for francecentral, November 2026), mostly API Management Standard v2
-(about $1 an hour); then Container Apps, PostgreSQL (Burstable B1ms), Log Analytics and the model's tokens. The
-optional Purview check uses Microsoft Purview pay-as-you-go billing for each checked call.
+Follow [the runbook](docs/DEMO-RUNBOOK.md): the six steps of [What the demo shows](#what-the-demo-shows) in about 14
+minutes, with the clicks, commands and expected output of each step, and a fallback for each.
 
-## Tear down
+## Tech stack
+
+Versions used in November 2026:
+
+| Technology | Role | Version |
+|---|---|---|
+| [Microsoft Agent 365](https://learn.microsoft.com/microsoft-agent-365/) | Discovers, blocks and audits the gateways' MCP tools | |
+| [Azure API Management](https://learn.microsoft.com/azure/api-management/) | The agent's gateway: the user's token, the model, the notes MCP server, the logs | Standard v2 |
+| [LiteLLM](https://github.com/BerriAI/litellm) | A second gateway, connected to Agent 365 | v1.106.6 |
+| [Microsoft Foundry](https://learn.microsoft.com/azure/ai-foundry/) | The chat's model | `gpt-6-luna` |
+| [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) | The notes MCP server | 2.3 |
+| [Microsoft Purview](https://learn.microsoft.com/purview/) | The optional check of prompts and answers at the gateway | |
+| [CopilotKit](https://www.copilotkit.ai), [Next.js](https://nextjs.org), [MSAL](https://github.com/AzureAD/microsoft-authentication-library-for-js) | The chat | 1.79, 16.4, 5.25 |
+| [Terraform](https://www.terraform.io) and [azd](https://learn.microsoft.com/azure/developer/azure-developer-cli/) | The infrastructure and its deployment | Terraform 1.9+ |
+
+## Documentation
+
+| Document | What it covers |
+|---|---|
+| [docs/DEMO-RUNBOOK.md](docs/DEMO-RUNBOOK.md) | Running the demo step by step (about 14 minutes), with a fallback per step and the reset |
+| [docs/queries.md](docs/queries.md) | The evidence queries: Defender, API Management's gateway logs, the activity log, the app's telemetry |
+| [docs/PURVIEW.md](docs/PURVIEW.md) | The optional Purview check at the gateway: set-up and what was observed |
+| [src/README.md](src/README.md) | The demo's scripts |
+| [AGENTS.md](AGENTS.md) | How to change the demo: rules, checks, conventions |
+
+## Versions and preview notes
+
+As of November 2026:
+
+- Connecting gateways to Agent 365 in the Microsoft 365 admin center (Agents > Settings > Gateways) is in preview, for
+  API Management and for LiteLLM.
+- Tool-level control on API Management is a capability of its AI Gateway tier, in public preview; this demo uses
+  Standard v2, governed per server.
+
+## Clean up
 
 ```bash
 azd down --purge
@@ -157,11 +222,12 @@ registration. Then remove the LiteLLM gateway connection in the Microsoft 365 ad
 until the tenant's administrators remove it), and the DLP policy, if you created it
 (`Remove-DlpCompliancePolicy -Identity "AI gateway demo - block sensitive data to the model"`).
 
-## Repository layout
+## Cost
 
-| Path | Content |
-|---|---|
-| `infra/` | One Terraform root per azd layer; `apim-mcp` and `apim-purview` are the demo's own, the others are shared building blocks |
-| `services/` | The chat UI (Next.js) and the notes MCP server (Python) |
-| `src/` | The demo's scripts ([src/README.md](src/README.md)): `configure_litellm.py`, `check_environment.py`, `block_timer.py`, `litellm_tools_probe.py`, `purview_check.py`, `create-dlp-policy.ps1` |
-| `docs/` | [The runbook](docs/DEMO-RUNBOOK.md), [the evidence queries](docs/queries.md) and [Purview at the gateway](docs/PURVIEW.md) |
+While it runs, about $1.5 an hour (prices for francecentral, November 2026), mostly API Management Standard v2
+(about $1 an hour); then Container Apps, PostgreSQL (Burstable B1ms), Log Analytics and the model's tokens. The
+optional Purview check uses Microsoft Purview pay-as-you-go billing for each checked call.
+
+## License
+
+[MIT](LICENSE)

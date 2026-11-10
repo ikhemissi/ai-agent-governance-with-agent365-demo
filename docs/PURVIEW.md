@@ -59,7 +59,7 @@ uv run python src/purview_check.py switch off
 
 ## Set up
 
-1. Provision the layer: `azd provision apim-purview --preview`, then `azd provision apim-purview`. It adds the Graph
+1. Provision it (`infra/apim-purview.tf`): `azd provision --preview`, then `azd provision`. It adds the Graph
    permissions, their admin consent (needs an administrator who can grant tenant-wide consent), the federated
    credential, the two switches, a policy fragment and the policy. Both switches start `off`.
 2. Create the DLP policy (Compliance Administrator; PowerShell 7 and the ExchangeOnlineManagement module). A DLP
@@ -102,6 +102,6 @@ conversation after a refusal: the chat sends the conversation again with the nex
 ## Turn it off or remove it
 
 - Off: `uv run python src/purview_check.py switch off --answers` and `switch off`.
-- Remove: delete the `apim-purview` entry from `azure.yaml` and run `azd provision` after destroying the layer
-  (`terraform destroy` in `infra/apim-purview` with the azd environment's values), then remove the DLP policy
+- Remove: delete `infra/apim-purview.tf` and run `azd provision --preview`, then `azd provision` (its resources are
+  destroyed), then remove the DLP policy
   (`Remove-DlpCompliancePolicy`).

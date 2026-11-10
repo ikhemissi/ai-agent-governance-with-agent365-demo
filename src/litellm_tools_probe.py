@@ -57,7 +57,7 @@ def main() -> None:
     arguments = parser.parse_args()
 
     values = {**azd_values(), **os.environ}
-    key = read_secret(values["PLATFORM_KEY_VAULT_NAME"], PROBE_KEY_SECRET)
+    key = read_secret(values["KEY_VAULT_NAME"], PROBE_KEY_SECRET)
     if not key:
         raise SystemExit("The probe key is missing from Key Vault: run src/configure_litellm.py first.")
     gateway = Gateway(values["LITELLM_URL"], key)

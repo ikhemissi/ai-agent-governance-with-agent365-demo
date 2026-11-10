@@ -32,12 +32,12 @@ Nothing here is production code. Read [README.md](README.md) first.
 
 ## Infrastructure
 
-- **Layers:** the layers listed in `azure.yaml` that come from shared building blocks (`infra/azure-platform`, `infra/foundry-model`, `infra/postgres`, `infra/litellm-gateway`, `infra/apim-gateway`, `infra/notes-mcp`, `infra/chat-ui`) are shared building blocks, each its own Terraform root and state. Keep them as they are, so that their improvements can be merged in later; put the demo's own resources in a new layer (`infra/<name>/`, reading the other layers' outputs from azd values in its `main.tfvars.json`) and add it to `azure.yaml`.
+- **One Terraform root** (`infra/`, one state), one file per part. The files from shared building blocks (`main.tf`, `providers.tf`, `network.tf`, `monitoring.tf`, `key-vault.tf`, `container-registry.tf`, `container-apps-environment.tf`, `foundry.tf`, `postgres.tf`, `litellm-gateway.tf`, `apim-gateway.tf`, `notes-mcp.tf`, `chat-ui.tf`), the modules in `infra/modules/` and the hook steps in `infra/hooks/<event>/` stay as they are, so that their improvements can be merged in later. The demo's own resources are `infra/apim-mcp.tf` and `infra/apim-purview.tf` (templates in `infra/policies/`); how the optional parts connect is `infra/connections.tf`.
 - **LiteLLM settings** (MCP servers, teams, virtual keys) go through LiteLLM's admin API, in a script (`src/configure_litellm.py`), not into its configuration file.
-- **API Management settings** (MCP servers and their policies) are Azure resources: register them in the demo's own layer (`infra/apim-mcp`, azapi for the MCP APIs), never by hand in the portal, so that a re-provision does not undo them. Never set `accessState` there: it is Agent 365's block.
-- **Notes MCP server:** `infra/notes-mcp` and `services/notes-mcp` are a shared building block; its checks: `uv run --no-project --with-requirements requirements.txt --with-requirements requirements-dev.txt pytest` in `services/notes-mcp`.
-- **Chat UI:** `infra/chat-ui` and `services/chat-ui` are a shared building block too: change what it shows and tells the model with its settings (`CHAT_UI_TITLE`, `CHAT_UI_INTRO`, `CHAT_UI_INSTRUCTIONS`), not its files. Its checks: `npm ci && npm run typecheck && npm run lint && npm test && npm run build` in `services/chat-ui`.
-- **Before every `azd provision`:** `azd hooks run preprovision`, then `azd provision --preview`, and read the plan.
+- **API Management settings** (MCP servers and their policies) are Azure resources: register them in the demo's own file (`infra/apim-mcp.tf`, azapi for the MCP APIs), never by hand in the portal, so that a re-provision does not undo them. Never set `accessState` there: it is Agent 365's block.
+- **Notes MCP server:** `infra/notes-mcp.tf` and `services/notes-mcp` come from a shared building block; its checks: `uv run --no-project --with-requirements requirements.txt --with-requirements requirements-dev.txt pytest` in `services/notes-mcp`.
+- **Chat UI:** `infra/chat-ui.tf` and `services/chat-ui` come from a shared building block too: change what it shows and tells the model with its settings (`CHAT_UI_TITLE`, `CHAT_UI_INTRO`, `CHAT_UI_INSTRUCTIONS`), not its files. Its checks: `npm ci && npm run typecheck && npm run lint && npm test && npm run build` in `services/chat-ui`.
+- **Before every `azd provision`:** `azd provision --preview` (one plan for the whole root), and read it.
 
 ## Code humans can maintain
 

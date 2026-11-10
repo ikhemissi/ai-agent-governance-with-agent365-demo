@@ -70,7 +70,7 @@ def check_apim(values: dict[str, str]) -> list[bool]:
 def check_litellm(values: dict[str, str]) -> list[bool]:
     status, _ = http("GET", values["LITELLM_URL"].rstrip("/") + "/health/readiness")
     results = [report("LiteLLM readiness", status == 200, f"HTTP {status}")]
-    key = read_secret(values["PLATFORM_KEY_VAULT_NAME"], "litellm-key-demo-probe")
+    key = read_secret(values["KEY_VAULT_NAME"], "litellm-key-demo-probe")
     if not key:
         return [
             *results,

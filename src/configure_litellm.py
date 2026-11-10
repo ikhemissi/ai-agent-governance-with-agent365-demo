@@ -89,11 +89,11 @@ def ensure_probe_key(admin: Gateway, vault: str, server_id: str) -> str:
 
 def main() -> None:
     values = {**azd_values(), **os.environ}
-    vault = values["PLATFORM_KEY_VAULT_NAME"]
+    vault = values["KEY_VAULT_NAME"]
     admin_key = read_secret(vault, values["LITELLM_MASTER_KEY_SECRET_NAME"])
     if not admin_key:
         raise SystemExit(
-            "The gateway's admin key is missing from Key Vault: provision the litellm-gateway layer first."
+            "The gateway's admin key is missing from Key Vault: provision the environment first (azd provision)."
         )
 
     admin = Gateway(values["LITELLM_URL"], admin_key)
